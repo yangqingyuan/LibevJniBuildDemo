@@ -3143,6 +3143,7 @@ infy_newfd (void)
     return fd;
 #endif
 //#endif
+//#endif
   return inotify_init ();
 }
 
