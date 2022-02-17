@@ -1,19 +1,19 @@
 /*
  * loop member variable declarations
  *
- * Copyright (c) 2007,2008,2009,2010,2011 Marc Alexander Lehmann <libev@schmorp.de>
+ * Copyright (c) 2007,2008,2009,2010,2011,2012,2013,2019 Marc Alexander Lehmann <libev@schmorp.de>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modifica-
  * tion, are permitted provided that the following conditions are met:
- * 
+ *
  *   1.  Redistributions of source code must retain the above copyright notice,
  *       this list of conditions and the following disclaimer.
- * 
+ *
  *   2.  Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MER-
  * CHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO
@@ -43,6 +43,17 @@ VARx(ev_tstamp, now_floor) /* last time we refreshed rt_time */
 VARx(ev_tstamp, mn_now)    /* monotonic clock "now" */
 VARx(ev_tstamp, rtmn_diff) /* difference realtime - monotonic time */
 
+/* for reverse feeding of events */
+VARx(W *, rfeeds)
+VARx(int, rfeedmax)
+VARx(int, rfeedcnt)
+
+VAR (pendings, ANPENDING *pendings [NUMPRI])
+VAR (pendingmax, int pendingmax [NUMPRI])
+VAR (pendingcnt, int pendingcnt [NUMPRI])
+VARx(int, pendingpri) /* highest priority currently pending */
+VARx(ev_prepare, pending_w) /* dummy pending watcher */
+
 VARx(ev_tstamp, io_blocktime)
 VARx(ev_tstamp, timeout_blocktime)
 
@@ -51,28 +62,17 @@ VARx(int, activecnt) /* total number of active events ("refcount") */
 VARx(EV_ATOMIC_T, loop_done)  /* signal by ev_break */
 
 VARx(int, backend_fd)
-VARx(ev_tstamp, backend_fudge) /* assumed typical timer resolution */
+VARx(ev_tstamp, backend_mintime) /* assumed typical timer resolution */
 VAR (backend_modify, void (*backend_modify)(EV_P_ int fd, int oev, int nev))
 VAR (backend_poll  , void (*backend_poll)(EV_P_ ev_tstamp timeout))
 
 VARx(ANFD *, anfds)
 VARx(int, anfdmax)
 
-VAR (pendings, ANPENDING *pendings [NUMPRI])
-VAR (pendingmax, int pendingmax [NUMPRI])
-VAR (pendingcnt, int pendingcnt [NUMPRI])
-VARx(ev_prepare, pending_w) /* dummy pending watcher */
-
-/* for reverse feeding of events */
-VARx(W *, rfeeds)
-VARx(int, rfeedmax)
-VARx(int, rfeedcnt)
-
-#if EV_USE_EVENTFD || EV_GENWRAP
-VARx(int, evfd)
-#endif
 VAR (evpipe, int evpipe [2])
 VARx(ev_io, pipe_w)
+VARx(EV_ATOMIC_T, pipe_write_wanted)
+VARx(EV_ATOMIC_T, pipe_write_skipped)
 
 #if !defined(_WIN32) || EV_GENWRAP
 VARx(pid_t, curpid)
@@ -107,7 +107,48 @@ VARx(int, epoll_epermcnt)
 VARx(int, epoll_epermmax)
 #endif
 
+#if EV_USE_LINUXAIO || EV_GENWRAP
+VARx(aio_context_t, linuxaio_ctx)
+VARx(int, linuxaio_iteration)
+VARx(struct aniocb **, linuxaio_iocbps)
+VARx(int, linuxaio_iocbpmax)
+VARx(struct iocb **, linuxaio_submits)
+VARx(int, linuxaio_submitcnt)
+VARx(int, linuxaio_submitmax)
+VARx(ev_io, linuxaio_epoll_w)
+#endif
+
+#if EV_USE_IOURING || EV_GENWRAP
+VARx(int, iouring_fd)
+VARx(unsigned, iouring_to_submit);
+VARx(int, iouring_entries)
+VARx(int, iouring_max_entries)
+VARx(void *, iouring_sq_ring)
+VARx(void *, iouring_cq_ring)
+VARx(void *, iouring_sqes)
+VARx(uint32_t, iouring_sq_ring_size)
+VARx(uint32_t, iouring_cq_ring_size)
+VARx(uint32_t, iouring_sqes_size)
+VARx(uint32_t, iouring_sq_head)
+VARx(uint32_t, iouring_sq_tail)
+VARx(uint32_t, iouring_sq_ring_mask)
+VARx(uint32_t, iouring_sq_ring_entries)
+VARx(uint32_t, iouring_sq_flags)
+VARx(uint32_t, iouring_sq_dropped)
+VARx(uint32_t, iouring_sq_array)
+VARx(uint32_t, iouring_cq_head)
+VARx(uint32_t, iouring_cq_tail)
+VARx(uint32_t, iouring_cq_ring_mask)
+VARx(uint32_t, iouring_cq_ring_entries)
+VARx(uint32_t, iouring_cq_overflow)
+VARx(uint32_t, iouring_cq_cqes)
+VARx(ev_tstamp, iouring_tfd_to)
+VARx(int, iouring_tfd)
+VARx(ev_io, iouring_tfd_w)
+#endif
+
 #if EV_USE_KQUEUE || EV_GENWRAP
+VARx(pid_t, kqueue_fd_pid)
 VARx(struct kevent *, kqueue_changes)
 VARx(int, kqueue_changemax)
 VARx(int, kqueue_changecnt)
@@ -180,11 +221,15 @@ VAR (fs_hash, ANFS fs_hash [EV_INOTIFY_HASHSIZE])
 #endif
 
 VARx(EV_ATOMIC_T, sig_pending)
-VARx(int, nosigmask)
 #if EV_USE_SIGNALFD || EV_GENWRAP
 VARx(int, sigfd)
 VARx(ev_io, sigfd_w)
 VARx(sigset_t, sigfd_set)
+#endif
+
+#if EV_USE_TIMERFD || EV_GENWRAP
+VARx(int, timerfd) /* timerfd for time jump detection */
+VARx(ev_io, timerfd_w)
 #endif
 
 VARx(unsigned int, origflags) /* original loop flags */
@@ -194,9 +239,10 @@ VARx(unsigned int, loop_count) /* total number of loop iterations/blocks */
 VARx(unsigned int, loop_depth) /* #ev_run enters - #ev_run leaves */
 
 VARx(void *, userdata)
-VAR (release_cb, void (*release_cb)(EV_P))
-VAR (acquire_cb, void (*acquire_cb)(EV_P))
-VAR (invoke_cb , void (*invoke_cb) (EV_P))
+/* C++ doesn't support the ev_loop_callback typedef here. stinks. */
+VAR (release_cb, void (*release_cb)(EV_P) EV_NOEXCEPT)
+VAR (acquire_cb, void (*acquire_cb)(EV_P) EV_NOEXCEPT)
+VAR (invoke_cb , ev_loop_callback invoke_cb)
 #endif
 
 #undef VARx
