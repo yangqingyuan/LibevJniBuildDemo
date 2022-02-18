@@ -12,8 +12,11 @@
 extern "C"{
 #endif
 
-JNIEXPORT jstring JNICALL Java_com_guanren_libevjnibuilddemo_EvUtils_init
+JNIEXPORT jstring JNICALL Java_com_guanren_libevjnibuilddemo_EvUtils_initEv
         (JNIEnv *env, jclass);
+
+JNIEXPORT jstring JNICALL Java_com_guanren_libevjnibuilddemo_EvUtils_testTimerAgain
+        (JNIEnv *env, jclass cls,jint sec);
 
 #ifdef __cplusplus
 }
