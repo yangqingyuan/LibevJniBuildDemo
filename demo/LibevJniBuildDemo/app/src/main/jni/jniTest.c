@@ -3,9 +3,11 @@
 //
 
 #include "jniTest.h"
-#include "config.h"
-#include "event.h"
-#include "ev.h"
+
+
+#include "event2/event.h"
+
+
 #include "log.h"
 #include <stdio.h>
 #include <unistd.h>
@@ -22,23 +24,25 @@
 #include <limits.h>
 #include <mm_malloc.h>
 
-struct event *ev;
+struct event_base *eb;
+struct event   *ev_engine;
 
-ev_io io_watcher;
-ev_timer timer_watcher;
-struct ev_loop *loop;
-
-static void io_action(struct ev_loop *main_loop,ev_io*io_w,int e){
-    //LOGE("io_action");
-}
-
-static void timer_action(struct ev_loop *main_loop,ev_timer*time_w,int e){
-     LOGE("timer_action %f, %d",time_w->repeat,e);
-}
-
-static void callback(int fd, short what, void *arg)
+static inline uint64_t now()
 {
-    LOGE("callback");
+    /* get microsecond unit time */
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    uint64_t ul = tv.tv_sec * (uint64_t)1000000 + tv.tv_usec;
+    return  ul;
+}
+
+ void callback(int severity, const char *msg){
+    LOGE("callback  severity:%d, msg:%s",severity,msg);
+ }
+static void
+xqc_client_engine_callback(int fd, short what, void *arg)
+{
+    LOGE("timer wakeup now:%lu", now());
 }
 
 /**
@@ -47,30 +51,14 @@ static void callback(int fd, short what, void *arg)
 JNIEXPORT jstring JNICALL Java_com_guanren_libevjnibuilddemo_EvUtils_initEv
         (JNIEnv *env, jclass cls) {
     // new 一个字符串，返回Hello World
-
-    const char * version = event_get_version();
-    LOGE("ev version:%s",version);
-
-    loop = EV_DEFAULT;
-
-    /**
-    * 监听socket的读事件,socket 这里假设设置为0'
-    * 所监听的事件，包括EV_READ, EV_WRITE 或 EV_READ | EV_WRITE
-    */
-    ev_io_init(&io_watcher,io_action,0,EV_READ);
-    ev_io_start(loop,&io_watcher);
-
-    /**
-    * ev_tstamp at; 定时器时间，单位为s
-    * ev_tstamp repeat; 是否重复
-    */
-    ev_timer_init(&timer_watcher,timer_action,-1,0);
-    ev_timer_start(loop,&timer_watcher);
-    //ev_timer_stop(loop,&timer_watcher);
-
-    ev_run(loop,0);//阻塞
-    //ev_break(loop,EV_NOEXCEPT);
-    LOGE("event ev_run end");
+    eb = event_base_new();
+    event_set_log_callback(callback);
+    ev_engine = event_new(eb, -1, 0, xqc_client_engine_callback, eb);
+    //event_base_set(eb,ev_engine);
+    event_add(ev_engine,NULL);
+    LOGE("event ev_run start A");
+    event_base_loop(eb,EVLOOP_NO_EXIT_ON_EMPTY);
+    LOGE("event ev_run end B");
     return (*env) -> NewStringUTF(env,"Hello World");
 }
 
@@ -79,8 +67,10 @@ JNIEXPORT jstring JNICALL Java_com_guanren_libevjnibuilddemo_EvUtils_initEv
 */
 JNIEXPORT jstring JNICALL Java_com_guanren_libevjnibuilddemo_EvUtils_testTimerAgain
         (JNIEnv *env, jclass cls,jint sec) {
-    timer_watcher.repeat = sec;//单位秒
-    ev_timer_again (loop, &timer_watcher);//重新设置重复时间，每次调用会覆盖之前的时间，时间开始时间为当前时间
-    LOGE("event ev_run repeat:%f",timer_watcher.repeat);
+    struct timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 1000;
+        event_add(ev_engine, &tv);
+        LOGE("event_add A");
     return (*env) -> NewStringUTF(env,"Hello World");
  }

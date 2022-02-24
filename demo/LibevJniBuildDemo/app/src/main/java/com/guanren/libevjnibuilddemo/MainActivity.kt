@@ -10,6 +10,9 @@ class MainActivity : AppCompatActivity() {
     companion object {
         // Used to load the 'native-lib' library on application startup.
         init {
+            //System.loadLibrary("event_core-2.2")
+            //System.loadLibrary("event_extra-2.2")
+            //System.loadLibrary("event-2.2")
             System.loadLibrary("ev")
         }
 
